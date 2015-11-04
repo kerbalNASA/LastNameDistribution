@@ -3,6 +3,7 @@ package;
 import openfl.display.*;
 import openfl.events.*;
 import openfl.Lib;
+import openfl.text.*;
 
 class Main extends Sprite
 {
@@ -24,14 +25,70 @@ class Main extends Sprite
 	
 	var barColour:Array<Int> = [];
 	
+	var controlButtons:Array<Button> = [];
+	
+	public static var pubStage:Stage;
+	public static var mDown:Bool;
+	
+	public var doNextGen:Bool = false;
+	public var continuous:Bool = false;
+	
 	public function new ()
 	{
-		super ();
+		super();
+		pubStage = this.stage;
 		init();
-		stage.addEventListener(Event.ENTER_FRAME, drawFrame);
+		pubStage.addEventListener(Event.ENTER_FRAME, drawFrame);
+		pubStage.addEventListener(MouseEvent.MOUSE_DOWN, msDown);
+		pubStage.addEventListener(MouseEvent.MOUSE_UP, msUp);
 	}
 	public function init()//initializes the first generation
 	{
+		initPop();
+		var stepAmount = Math.ceil(Math.pow(numLastName, 1/3));
+		var stepVal = 200/stepAmount;
+		for(i in 0...numLastName)
+		{
+			barColour.push(createColour(Math.floor(i/(stepAmount*stepAmount))*stepVal, (Math.floor(i/stepAmount)*stepVal)%200,(i*stepVal)%200,255));
+		}
+		drawGram();
+		var tmpA:Array<Bitmap> = buttonBitmapData("Continuous Generations");
+		controlButtons.push(new Button(tmpA[0], tmpA[1], tmpA[2], histogramX, histogramY+histogramHeight+20, startContinuous));
+		var tmpA:Array<Bitmap> = buttonBitmapData("Pause");
+		controlButtons.push(new Button(tmpA[0], tmpA[1], tmpA[2], controlButtons[0].endX+4, histogramY+histogramHeight+20, pauseGen));
+		var tmpA:Array<Bitmap> = buttonBitmapData("One Generation");
+		controlButtons.push(new Button(tmpA[0], tmpA[1], tmpA[2], controlButtons[1].endX+4, histogramY+histogramHeight+20, doOneGen));
+		var tmpA:Array<Bitmap> = buttonBitmapData("Reset");
+		controlButtons.push(new Button(tmpA[0], tmpA[1], tmpA[2], controlButtons[2].endX+4, histogramY+histogramHeight+20, resetGens));
+	}
+	public function buttonBitmapData(name:String):Array<Bitmap>
+	{
+		var txtFrmt:TextFormat = new TextFormat(null, 12, 0x000000);
+		var tf = new TextField();
+		tf.width = 9999;
+		tf.autoSize = TextFieldAutoSize.LEFT;
+		tf.text = name;
+		var bmdA:Array<BitmapData> = [];
+		var bmd = new BitmapData(Math.ceil(tf.textWidth)+3, Math.ceil(tf.textHeight)+2, null, createColour(200, 50, 0, 255));
+		bmd.draw(tf);
+		bmdA.push(bmd);
+		var bmd = new BitmapData(Math.ceil(tf.textWidth)+3, Math.ceil(tf.textHeight)+2, null, createColour(0, 200, 0, 255));
+		bmd.draw(tf);
+		bmdA.push(bmd);
+		var bmd = new BitmapData(Math.ceil(tf.textWidth)+3, Math.ceil(tf.textHeight)+2, null, createColour(200, 0, 0, 255));
+		bmd.draw(tf);
+		bmdA.push(bmd);
+		var bmA:Array<Bitmap> = [];
+		for(i in 0...bmdA.length)
+		{
+			bmA.push(new Bitmap(bmdA[i]));
+		}
+		return bmA;
+	}
+	public function initPop()
+	{
+		currentGen = [];
+		lastNameOccurence = [];
 		for(i in 0...popTotal)
 		{
 			currentGen.push(new PClass(Math.floor(2*Math.random()), Math.floor(numLastName*Math.random())));
@@ -45,38 +102,60 @@ class Main extends Sprite
 			lastNameOccurence[currentGen[i].lastName]++;
 		}
 		initNewGeneration();
-		var stepAmount = Math.ceil(Math.pow(numLastName, 1/3));
-		var stepVal = 200/stepAmount;
-		for(i in 0...numLastName)
-		{
-			barColour.push(createColour(Math.floor(i/(stepAmount*stepAmount))*stepVal, (Math.floor(i/stepAmount)*stepVal)%200,(i*stepVal)%200,255));
-		}
-		drawGraph();
 	}
 	public function drawFrame(e:Event)
 	{
-		drawProgress();
-		if(createNewGeneration(Lib.getTimer()))
+		for(i in 0...controlButtons.length)
 		{
-			drawGraph();
-			initNewGeneration();
+			controlButtons[i].update();
 		}
+		drawProgress();
+		if(doNextGen)
+		{
+			if(createNewGeneration(Lib.getTimer()))
+			{
+				drawGram();
+				initNewGeneration();
+				if(!continuous)
+				doNextGen = false;
+			}
+		}
+	}
+	public function msDown(e:MouseEvent)
+	{
+		if(!Main.mDown)
+		Main.mDown = true;
+		//startButton.callFunctionIfClicked();
+		//initPop();
+		//drawGram();
+	}
+	public function msUp(e:MouseEvent)
+	{
+		if(Main.mDown)
+		Main.mDown = false;
+		for(i in 0...controlButtons.length)
+		{
+			controlButtons[i].callFunctionIfClicked();
+		}
+		//startButton.callFunctionIfClicked();
+		//initPop();
+		//drawGram();
 	}
 	public function drawProgress()
 	{
-		stage.removeChild(progSprt);
+		pubStage.removeChild(progSprt);
 		progSprt = new Sprite();
 		progSprt.graphics.beginFill(0);
 		var ratio:Float = 1-Math.min(givers.length/(popTotal>>1),takers.length/(popTotal>>1));
 		progSprt.graphics.drawRect(histogramX, histogramY+histogramHeight, histogramWidth*ratio, 10);
-		stage.addChild(progSprt);
+		pubStage.addChild(progSprt);
 	}
-	public function drawGraph()
+	public function drawGram()
 	{
 		var sortedA:Array<Int> = lastNameCommonness();
 		var prevV:Int = -1;
 		var prevP:Int = -1;
-		stage.removeChild(gramSprt);
+		pubStage.removeChild(gramSprt);
 		gramSprt = new Sprite();
 		for(i in 0...sortedA.length)
 		{
@@ -93,7 +172,7 @@ class Main extends Sprite
 			gramSprt.graphics.beginFill(barColour[prevP]);
 			gramSprt.graphics.drawRect(histogramX+i*6, histogramY+histogramHeight*(1-ratio), 6, histogramHeight*(ratio));
 		}
-		stage.addChild(gramSprt);
+		pubStage.addChild(gramSprt);
 	}
 	public function initNewGeneration()
 	{
@@ -159,6 +238,29 @@ class Main extends Sprite
 			return 0;
 		} );
 		return sortedOccurence;
+	}
+	public function startContinuous():Void
+	{
+		continuous = true;
+		doNextGen = true;
+	}
+	public function pauseGen():Void
+	{
+		continuous = false;
+		doNextGen = false;
+	}
+	public function doOneGen():Void
+	{
+		continuous = false;
+		doNextGen = true;
+	}
+	public function resetGens():Void
+	{
+		continuous = false;
+		doNextGen = false;
+		initPop();
+		drawGram();
+		trace("Hello?");
 	}
 	public function createColour(red:Float, green:Float, blue:Float, alpha:Float):Int//same as crtClr expect uses floats
 	{
