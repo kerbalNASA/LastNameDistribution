@@ -33,6 +33,8 @@ class Main extends Sprite
 	public var doNextGen:Bool = false;
 	public var continuous:Bool = false;
 	
+	public var pRatio:Float = 0;
+	
 	public function new ()
 	{
 		super();
@@ -125,9 +127,6 @@ class Main extends Sprite
 	{
 		if(!Main.mDown)
 		Main.mDown = true;
-		//startButton.callFunctionIfClicked();
-		//initPop();
-		//drawGram();
 	}
 	public function msUp(e:MouseEvent)
 	{
@@ -137,18 +136,20 @@ class Main extends Sprite
 		{
 			controlButtons[i].callFunctionIfClicked();
 		}
-		//startButton.callFunctionIfClicked();
-		//initPop();
-		//drawGram();
 	}
 	public function drawProgress()
 	{
-		pubStage.removeChild(progSprt);
-		progSprt = new Sprite();
-		progSprt.graphics.beginFill(0);
-		var ratio:Float = 1-Math.min(givers.length/(popTotal>>1),takers.length/(popTotal>>1));
-		progSprt.graphics.drawRect(histogramX, histogramY+histogramHeight, histogramWidth*ratio, 10);
-		pubStage.addChild(progSprt);
+		var cRatio:Float = 1-Math.min(givers.length/(popTotal>>1),takers.length/(popTotal>>1));
+		if(cRatio-pRatio < .05)
+		{
+			pubStage.removeChild(progSprt);
+			progSprt = new Sprite();
+			progSprt.graphics.beginFill(0);
+			progSprt.graphics.drawRect(histogramX, histogramY+histogramHeight, histogramWidth*cRatio, 10);
+			pubStage.addChild(progSprt);
+		}
+		pRatio = cRatio;
+		
 	}
 	public function drawGram()
 	{
@@ -176,6 +177,7 @@ class Main extends Sprite
 	}
 	public function initNewGeneration()
 	{
+		pRatio = 0;
 		nextGen = [];
 		givers = [];
 		takers = [];
@@ -260,7 +262,6 @@ class Main extends Sprite
 		doNextGen = false;
 		initPop();
 		drawGram();
-		trace("Hello?");
 	}
 	public function createColour(red:Float, green:Float, blue:Float, alpha:Float):Int//same as crtClr expect uses floats
 	{
